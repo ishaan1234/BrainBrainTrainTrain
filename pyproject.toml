@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arteryseg"
+version = "1.0.0"
+description = "Brain-artery segmentation from CT angiography (DICOM/NIfTI) with STL export"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",
+    "monai==1.5.1",
+    "einops",
+    "nibabel>=5",
+    "SimpleITK>=2.3",
+    "scikit-image>=0.22",
+    "scipy>=1.11",
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["arteryseg*"]

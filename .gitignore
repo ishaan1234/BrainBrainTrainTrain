@@ -1,0 +1,23 @@
+# Never commit patient data or derived outputs
+data/
+raw/
+runs/
+eval/
+result*/
+*.nii
+*.nii.gz
+*.dcm
+*.npy
+*.stl
+*.zip
+cases.json
+
+# Only the released (split) weights in models/ are tracked
+*.pt
+*.pt.part*
+!models/*.pt.part*
+
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/

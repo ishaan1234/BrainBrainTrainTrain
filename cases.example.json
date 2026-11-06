@@ -1,0 +1,4 @@
+{
+  "case01": {"image": "raw/case01/ct.nii.gz", "label": "raw/case01/arteries.nii"},
+  "case02": {"image": "raw/case02/ct.nii.gz", "label": "raw/case02/arteries.nii"}
+}
