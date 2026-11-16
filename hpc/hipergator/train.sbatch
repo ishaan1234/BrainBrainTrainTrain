@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
-#SBATCH --mem=96gb
+#SBATCH --mem=48gb
 #SBATCH --time=20:00:00
 #SBATCH --signal=USR1@600
 #SBATCH --requeue

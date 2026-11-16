@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=artery-export
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=96gb
+#SBATCH --mem=48gb
 #SBATCH --time=06:00:00
 #SBATCH --output=%x-%j.log
 # After training: collect the models into $WORK/models (split for GitHub), score them on every
