@@ -2,6 +2,10 @@
 """Train one network on a wall-clock budget. Warmup + cosine LR runs on the elapsed-time fraction,
 so the run always finishes on time. All math is fp32 (no AMP, TF32 off).
 
+Resumable: a full training state (model, optimizer, step, elapsed time) is written to state.pt every
+--ckpt-every-min minutes and on SIGUSR1/SIGTERM. Re-running the same command continues where it
+stopped, with the LR schedule picking up at the same point. `--train all` uses every case in records.
+
 python scripts/train.py --records data/cache/records.json --arch dynunet --train case01,case02 \
     --val case03 --minutes 90 --patch 160 --batch 2 --out runs/dynunet
 
@@ -10,6 +14,7 @@ Several runs can share one large GPU: start them as separate processes.
 import argparse
 import json
 from pathlib import Path
+import signal
 import sys
 import time
 
@@ -23,6 +28,7 @@ from arteryseg.inference import predict_prob  # noqa: E402
 from arteryseg.metrics import scores  # noqa: E402
 from arteryseg.training import Crops, cosine_lr, crop_size, deep_supervision_loss, gpu_augment, seg_loss  # noqa: E402
 
+EXIT_RESUME = 99  # "stopped early, state saved": job scripts requeue on this code
 DEFAULT_LR = dict(dynunet=1e-3, segresnet=1e-3, swinunetr=2e-4)
 
 
@@ -55,6 +61,8 @@ def main():
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda", help="cuda, or cpu for a quick smoke test")
+    ap.add_argument("--ckpt-every-min", type=float, default=10)
+    ap.add_argument("--fresh", action="store_true", help="ignore an existing state.pt and start over")
     a = ap.parse_args()
     if a.patch % 32:
         sys.exit("--patch must be divisible by 32")
@@ -68,27 +76,54 @@ def main():
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     records = json.loads(Path(a.records).read_text())
-    train, val = a.train.split(","), [v for v in a.val.split(",") if v]
+    val = [v for v in a.val.split(",") if v]
+    train = [c for c in records if c not in val] if a.train == "all" else a.train.split(",")
     lr_max = a.lr or DEFAULT_LR[a.arch]
     roi = [a.patch] * 3
     (out / "config.json").write_text(json.dumps(dict(vars(a), lr_max=lr_max), indent=2))
 
-    loader = DataLoader(Crops([records[c] for c in train], crop_size(a.patch), a.seed), batch_size=a.batch,
-                        num_workers=a.workers, pin_memory=dev.type == "cuda", persistent_workers=a.workers > 0,
-                        prefetch_factor=4 if a.workers else None)
     model = M.build_model(a.arch).to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=lr_max, weight_decay=1e-4)
+    state_path, step, hist, elapsed = out / "state.pt", 0, [], 0.0
+    if state_path.exists() and not a.fresh:
+        st = torch.load(state_path, map_location="cpu", weights_only=False)
+        model.load_state_dict(st["model"])
+        opt.load_state_dict(st["opt"])
+        step, hist, elapsed = st["step"], st["hist"], st["elapsed"]
+        torch.set_rng_state(st["rng"])
+        print(f"resumed from {state_path}: step {step}, {elapsed / 60:.1f} of {a.minutes:.0f} min done", flush=True)
     print(f"{a.arch}: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params, patch {a.patch}, "
-          f"batch {a.batch}, train {train}, val {val}", flush=True)
+          f"batch {a.batch}, {len(train)} train cases {train}, val {val}", flush=True)
 
-    budget, t0 = a.minutes * 60, time.time()
-    last_eval, tick, step, hist = t0, t0, 0, []
+    def save_state():
+        tmp = state_path.with_suffix(".tmp")
+        torch.save(dict(model=model.state_dict(), opt=opt.state_dict(), step=step, hist=hist,
+                        elapsed=time.time() - t0, rng=torch.get_rng_state()), tmp)
+        tmp.replace(state_path)
+
+    stop = {"now": False}
+    for sig in (signal.SIGUSR1, signal.SIGTERM):  # Slurm warns with USR1 (--signal) and ends with TERM
+        signal.signal(sig, lambda *_: stop.update(now=True))
+
+    # a different sample stream after each resume, so restarts don't replay the first batches
+    loader = DataLoader(Crops([records[c] for c in train], crop_size(a.patch), a.seed + step), batch_size=a.batch,
+                        num_workers=a.workers, pin_memory=dev.type == "cuda", persistent_workers=a.workers > 0,
+                        prefetch_factor=4 if a.workers else None)
+    budget, t0 = a.minutes * 60, time.time() - elapsed
+    last_eval = last_ckpt = tick = time.time()
     log = open(out / "log.jsonl", "a")
     model.train()
     for xb, yb in loader:
         frac = (time.time() - t0) / budget
         if frac >= 1:
             break
+        if stop["now"]:
+            save_state()
+            print(f"stopped by signal at step {step}; state saved, re-run to resume", flush=True)
+            sys.exit(EXIT_RESUME)
+        if time.time() - last_ckpt > a.ckpt_every_min * 60:
+            save_state()
+            last_ckpt = time.time()
         for g in opt.param_groups:
             g["lr"] = cosine_lr(frac, lr_max)
         x, y = gpu_augment(xb.to(dev, non_blocking=True), yb.to(dev, non_blocking=True), a.patch)
@@ -118,9 +153,9 @@ def main():
             hist.append(row)
             log.write(json.dumps(row) + "\n")
             log.flush()
-            M.save_checkpoint(out / "last.pt", model, a.arch, roi, steps=step)
 
     M.save_checkpoint(out / "final.pt", model, a.arch, roi, steps=step, n_train_cases=len(train))
+    save_state()
     final = dict(arch=a.arch, steps=step, minutes=round((time.time() - t0) / 60, 1), history=hist)
     if val:
         final["final_val"] = evaluate(model, roi, records, val, dev, overlap=0.5)
