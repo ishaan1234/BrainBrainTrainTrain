@@ -18,8 +18,11 @@ if [[ "${1:-}" != --skip-prep ]]; then
   echo "prep   job $PREP"
   DEP=(--dependency=afterok:$PREP)
 fi
+# job time limit = training budget + 30 min for startup and the final save, at most 20 h
+# (longer budgets continue automatically: the job requeues itself and resumes)
+LIMIT=$(( TRAIN_MINUTES + 30 < 1200 ? TRAIN_MINUTES + 30 : 1200 ))
 TRAIN=$(sbatch --parsable "${ACC[@]}" "${DEP[@]}" --partition="$GPU_PARTITION" --gres="gpu:$GPU_GRES" \
-  --array=0-$LAST --export=ALL "$REPO/hpc/hipergator/train.sbatch")
+  --time="$LIMIT" --array=0-$LAST --export=ALL "$REPO/hpc/hipergator/train.sbatch")
 echo "train  job $TRAIN (array 0-$LAST, seeds: $SEEDS, $TRAIN_MINUTES min each)"
 EXPORT=$(sbatch --parsable "${ACC[@]}" --dependency=afterok:$TRAIN --partition="$GPU_PARTITION" \
   --gres="gpu:$GPU_GRES" --export=ALL "$REPO/hpc/hipergator/export.sbatch")

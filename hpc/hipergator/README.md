@@ -42,7 +42,7 @@ tail -f /blue/<group>/$USER/arteryseg/artery-train-<jobid>_0.log
 | Job | Resources | What it does |
 |---|---|---|
 | `artery-prep` | CPU, about 10 min | resamples each case to 0.5 mm and writes `$WORK/cache` |
-| `artery-train` | 1 GPU per seed | trains `TRAIN_MINUTES` per model (default 24 h), with seeds 2026 and 7 in parallel |
+| `artery-train` | 1 GPU per seed | trains `TRAIN_MINUTES` per model (default 3.5 h), with seeds 2026 and 7 in parallel |
 | `artery-export` | 1 GPU | runs after training; writes `$WORK/models` and `$WORK/export` |
 
 Export output:
@@ -56,7 +56,7 @@ You can also cancel it and run `run_all.sh --skip-prep` later to resume.
 **Speed.** In fp32, an A100 is much slower than a B200, roughly 4x. Use B200 if your group has it:
 set `GPU_PARTITION`/`GPU_GRES` in `config.sh` and check `sinfo -s` for the partition names.
 
-The time budget is fixed, so a slower GPU gets fewer steps in the same 24 h. Raise `TRAIN_MINUTES`
+The time budget is fixed, so a slower GPU gets fewer steps in the same time. Raise `TRAIN_MINUTES`
 for more steps; each job runs 20 h and requeues itself to continue. Check the log's `sec_per_step` after
 the first hour to see what a day buys you.
 
@@ -87,6 +87,6 @@ The `.part` files are under 50 MB each, so they push without Git LFS.
 | `GROUP`, `QOS` | `gaitor_club` | your allocation; `QOS=$GROUP-b` uses burst |
 | `WORK` | `/blue/$GROUP/$USER/arteryseg` | everything lives here (not `/home`, which is small) |
 | `GPU_PARTITION`, `GPU_GRES` | `hpg-b200`, `b200:1` | GPU type |
-| `TRAIN_MINUTES` | 1440 | training time per model |
+| `TRAIN_MINUTES` | 210 | training time per model (override per run: `TRAIN_MINUTES=480 bash hpc/hipergator/run_all.sh`) |
 | `SEEDS` | `2026 7` | one model per seed; more seeds give a bigger ensemble |
 | `PATCH`, `BATCH` | 160, 2 | same as the released models |

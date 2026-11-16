@@ -15,7 +15,7 @@ export GPU_GRES="${GPU_GRES:-b200:1}"
 export CPU_PARTITION="${CPU_PARTITION:-hpg-default}"
 
 # Training: DynUNet, same recipe as the best model (fp32, 160^3 patches, batch 2, augmentation).
-export TRAIN_MINUTES="${TRAIN_MINUTES:-1440}"   # training budget per model; the LR schedule spans exactly this
+export TRAIN_MINUTES="${TRAIN_MINUTES:-210}"    # training time per model (3.5 h); the LR schedule spans exactly this
 export SEEDS="${SEEDS:-2026 7}"                 # one model per seed; predict.py averages them
 export PATCH="${PATCH:-160}"
 export BATCH="${BATCH:-2}"
