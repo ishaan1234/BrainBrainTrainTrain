@@ -24,4 +24,6 @@ echo "train  job $TRAIN (array 0-$LAST, seeds: $SEEDS, $TRAIN_MINUTES min each)"
 EXPORT=$(sbatch --parsable "${ACC[@]}" --dependency=afterok:$TRAIN --partition="$GPU_PARTITION" \
   --gres="gpu:$GPU_GRES" --export=ALL "$REPO/hpc/hipergator/export.sbatch")
 echo "export job $EXPORT (runs after all training finishes)"
-echo "Logs in $WORK. Watch with: squeue -u $USER   and   tail -f $WORK/artery-train-${TRAIN}_0.log"
+echo "Logs in $WORK. Watch with these two commands:"
+echo "  squeue -u $USER"
+echo "  tail -f $WORK/artery-train-${TRAIN}_0.log"
