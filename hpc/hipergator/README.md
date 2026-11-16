@@ -42,7 +42,7 @@ tail -f /blue/<group>/$USER/arteryseg/artery-train-<jobid>_0.log
 | Job | Resources | What it does |
 |---|---|---|
 | `artery-prep` | CPU, about 10 min | resamples each case to 0.5 mm and writes `$WORK/cache` |
-| `artery-train` | 1 GPU per seed | trains `TRAIN_MINUTES` per model (default 3.5 h), with seeds 2026 and 7 in parallel |
+| `artery-train` | 1 GPU per seed | trains `TRAIN_MINUTES` per model (default 3.5 h), one model by default (set `SEEDS` for more, in parallel) |
 | `artery-export` | 1 GPU | runs after training; writes `$WORK/models` and `$WORK/export` |
 
 Export output:
@@ -88,5 +88,5 @@ The `.part` files are under 50 MB each, so they push without Git LFS.
 | `WORK` | `/blue/$GROUP/$USER/arteryseg` | everything lives here (not `/home`, which is small) |
 | `GPU_PARTITION`, `GPU_GRES` | `hpg-b200`, `b200:1` | GPU type |
 | `TRAIN_MINUTES` | 210 | training time per model (override per run: `TRAIN_MINUTES=480 bash hpc/hipergator/run_all.sh`) |
-| `SEEDS` | `2026 7` | one model per seed; more seeds give a bigger ensemble |
+| `SEEDS` | `2026` | one model per seed; `"2026 7"` trains two in parallel and predict.py averages them |
 | `PATCH`, `BATCH` | 160, 2 | same as the released models |

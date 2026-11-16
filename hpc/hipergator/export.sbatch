@@ -12,8 +12,13 @@ activate_env
 mkdir -p "$WORK/models"
 for run in "$WORK"/runs/dynunet_s*/; do
   name=$(basename "$run")
-  cp "$run/final.pt" "$WORK/models/$name.pt"
+  if [[ -f "$run/final.pt" ]]; then
+    cp "$run/final.pt" "$WORK/models/$name.pt"
+  else
+    echo "skipping $name: no final.pt (cancelled or unfinished)"
+  fi
 done
+ls "$WORK"/models/*.pt >/dev/null 2>&1 || { echo "no finished models to export"; exit 1; }
 CASES=$(python -c "import json; print(','.join(json.load(open('$WORK/cache/records.json'))))")
 python "$REPO/scripts/evaluate.py" --records "$WORK/cache/records.json" --models "$WORK/models" \
   --cases "$CASES" --out "$WORK/export"
