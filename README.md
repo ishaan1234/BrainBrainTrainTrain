@@ -104,6 +104,10 @@ python scripts/evaluate.py --records data/cache/records.json --models runs/dynun
 - Several runs can share one large GPU.
 - [docs/training.md](docs/training.md) describes how the released models were trained on a Colab GPU
   from the command line.
+- [hpc/hipergator/README.md](hpc/hipergator/README.md) trains on HiPerGator (Slurm): download, preprocess,
+  train one model per seed, and export, with automatic resume after time limits.
+- `scripts/make_manifest.py` builds `cases.json` from a folder of case folders, telling CT and label apart
+  by their voxel values.
 
 ## Tests
 
@@ -118,7 +122,8 @@ equivalence, STL geometry, augmentation, all three architectures, and an end-to-
 
 ```
 arteryseg/   io.py  preprocess.py  models.py  inference.py  mesh.py  metrics.py  training.py  pipeline.py
-scripts/     predict.py  prepare_data.py  train.py  evaluate.py
+scripts/     predict.py  make_manifest.py  prepare_data.py  train.py  evaluate.py
+hpc/         hipergator/  (Slurm setup, data, training and export scripts)
 models/      dynunet_s1.pt.part00-02  dynunet_s2.pt.part00-02
 tests/       test_core.py
 docs/        training.md
